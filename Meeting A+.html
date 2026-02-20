@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองห้องประชุม สทร. (Sync Online)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; }
+        .loading { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <nav class="bg-blue-800 text-white shadow-lg mb-8">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center">📅 ระบบจองห้องประชุม สทร. (Online)</h1>
+            <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition flex items-center">
+                ส่งออก Excel
+            </button>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 md:p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-white p-8 rounded-xl shadow-md border border-gray-100">
+                <h2 class="text-xl font-bold mb-6 text-blue-800 border-b pb-2">📝 จองห้องประชุม</h2>
+                <form id="bookingForm" class="space-y-5">
+                    <input type="text" id="userName" class="w-full border rounded-lg p-2.5" placeholder="ชื่อผู้จอง" required>
+                    <input type="text" id="roomName" value="ห้องประชุม สทร." class="w-full border rounded-lg p-2.5 bg-gray-50 font-bold text-blue-700" readonly>
+                    <input type="date" id="bookingDate" class="w-full border rounded-lg p-2.5" required>
+                    <select id="bookingTime" class="w-full border rounded-lg p-2.5">
+                        <option value="08:30 - 12:00 น.">ช่วงเช้า (08:30 - 12:00 น.)</option>
+                        <option value="13:00 - 16:00 น.">ช่วงบ่าย (13:00 - 16:00 น.)</option>
+                    </select>
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-700 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition shadow-md">บันทึกการจอง</button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-white p-8 rounded-xl shadow-md border border-gray-100">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-700">รายการจองออนไลน์</h2>
+                    <button onclick="fetchData()" class="text-blue-600 text-sm hover:underline">🔄 รีเฟรชข้อมูล</button>
+                </div>
+                <div id="statusMessage" class="hidden text-center py-2 mb-2 bg-yellow-100 text-yellow-800 rounded">กำลังประมวลผล...</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-gray-50 text-blue-800 text-sm">
+                                <th class="py-3 px-4 font-bold">วันที่</th>
+                                <th class="py-3 px-4 font-bold">เวลา</th>
+                                <th class="py-3 px-4 font-bold">ผู้จอง</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bookingList" class="text-sm divide-y divide-gray-100 text-center">
+                            <tr><td colspan="3" class="py-8 text-gray-400">กำลังโหลดข้อมูล...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // *** วาง URL ที่คัดลอกมาจาก Google Apps Script ตรงนี้ ***
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_YRbZVcoOjPTIIsjP2l1Eor5RMwbAmzWTQGrUna-SHTg_YlMxm3Sz_Rgoh3zc9DiQ/exec"; 
+
+        let allBookings = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch(SCRIPT_URL);
+                allBookings = await response.json();
+                renderTable();
+            } catch (error) {
+                console.error("Error:", error);
+                document.getElementById('bookingList').innerHTML = '<tr><td colspan="3" class="py-8 text-red-500">โหลดข้อมูลไม่สำเร็จ กรุณาเช็ค URL</td></tr>';
+            }
+        }
+
+        function renderTable() {
+            const list = document.getElementById('bookingList');
+            list.innerHTML = '';
+            allBookings.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            allBookings.forEach(item => {
+                list.innerHTML += `
+                    <tr class="hover:bg-blue-50 transition-colors">
+                        <td class="py-4 px-4 font-semibold">${item.date}</td>
+                        <td class="py-4 px-4"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">${item.time}</span></td>
+                        <td class="py-4 px-4">${item.user}</td>
+                    </tr>`;
+            });
+        }
+
+        document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const entry = {
+                user: document.getElementById('userName').value,
+                room: document.getElementById('roomName').value,
+                date: document.getElementById('bookingDate').value,
+                time: document.getElementById('bookingTime').value
+            };
+
+            // เช็คความซ้ำซ้อนเบื้องต้น
+            if (allBookings.some(b => b.date === entry.date && b.time === entry.time)) {
+                alert('ช่วงเวลานี้ถูกจองไปแล้ว!');
+                return;
+            }
+
+            // ส่งข้อมูลไป Google Sheets
+            toggleLoading(true);
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: "POST",
+                    body: JSON.stringify(entry)
+                });
+                e.target.reset();
+                await fetchData();
+            } catch (error) {
+                alert("เกิดข้อผิดพลาดในการบันทึก");
+            } finally {
+                toggleLoading(false);
+            }
+        });
+
+        function toggleLoading(isLoading) {
+            const form = document.getElementById('bookingForm');
+            const msg = document.getElementById('statusMessage');
+            if(isLoading) {
+                form.classList.add('loading');
+                msg.classList.remove('hidden');
+            } else {
+                form.classList.remove('loading');
+                msg.classList.add('hidden');
+            }
+        }
+
+        function exportToExcel() {
+            const worksheet = XLSX.utils.json_to_sheet(allBookings);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings");
+            XLSX.writeFile(workbook, "Sator_Meeting_Export.xlsx");
+        }
+
+        // เริ่มโหลดข้อมูลเมื่อเปิดหน้าเว็บ
+        fetchData();
+    </script>
+</body>
+</html>
+  </body>
+</html>
